@@ -38,7 +38,6 @@ __chunk_size__: int = 1024
 __errored__: dict = {}
 __no_confirm__: bool = False
 __no_integrity_check__: bool = False
-__use_process_pool__: bool = False
 __max_retry__: int = 3
 
 
@@ -523,12 +522,8 @@ def download_wordlists(code: str) -> None:
 def redownload() -> None:
     global __errored__
     global __executer__
-    global __use_process_pool__
     info("redownloading unsuccessful downloads")
-    if __use_process_pool__:
-        __executer__ = ProcessPoolExecutor(__max_parallel__)
-    else:
-        __executer__ = ThreadPoolExecutor(__max_parallel__)
+    __executer__ = ThreadPoolExecutor(__max_parallel__)
     for i in __errored__.keys():
         for j in __errored__[i]["files"]:
             __executer__.submit(download_wordlist, j, j["name"], i)
@@ -708,13 +703,12 @@ def arg_parse(argv: list) -> tuple:
     global __proxy_torrent__
     global __no_confirm__
     global __no_integrity_check__
-    global __use_process_pool__
     __operation__ = None
     __arg__ = None
     opFlag: int = 0
 
     try:
-        opts, _ = getopt.getopt(argv[1:], "MZIYHCNVXThrd:c:f:s:S:t:F:A:P:")
+        opts, _ = getopt.getopt(argv[1:], "ZIYHCNVXThrd:c:f:s:S:t:F:A:P:")
 
         if opts.__len__() <= 0:
             __operation__ = usage
@@ -786,8 +780,6 @@ def arg_parse(argv: list) -> tuple:
                 __max_parallel__ = to_int(arg)
                 if __max_parallel__ <= 0:
                     raise Exception("threads number can't be less than 1")
-            elif opt == "-M":
-                __use_process_pool__ = True
             elif opt == "-F":
                 __operation__ = print_wordlists
                 __arg__ = arg
@@ -805,7 +797,6 @@ def arg_parse(argv: list) -> tuple:
 def main(argv: list) -> int:
     global __max_parallel__
     global __executer__
-    global __use_process_pool__
     banner()
 
     __operation__, __arg__ = arg_parse(argv)
@@ -814,10 +805,7 @@ def main(argv: list) -> int:
         if __operation__ not in [version, usage]:
             load_config()
         if __executer__ is None:
-            if __use_process_pool__:
-                __executer__ = ProcessPoolExecutor(__max_parallel__)
-            else:
-                __executer__ = ThreadPoolExecutor(__max_parallel__)
+            __executer__ = ThreadPoolExecutor(__max_parallel__)
         if __operation__ is not None:
             if __arg__ is not None:
                 __operation__(__arg__)
