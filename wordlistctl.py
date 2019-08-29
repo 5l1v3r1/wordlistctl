@@ -39,6 +39,7 @@ __errored__: dict = {}
 __no_confirm__: bool = False
 __no_integrity_check__: bool = False
 __use_process_pool__: bool = False
+__max_retry__: int = 3
 
 
 def err(string: str) -> None:
@@ -129,13 +130,21 @@ def banner():
     print(colored(__str_banner__, "red", attrs=["bold"]))
 
 
-def decompress_gbl(infilename: str) -> bool:
-    filename = os.path.basename(infilename)
+def decompress(infilename: str) -> None:
+    filename: str = os.path.basename(infilename)
+
+    if not __decompress__:
+        return
+
     try:
-        infile = None
-        __outfile__ = os.path.splitext(infilename)[0]
-        if os.path.isfile(__outfile__):
-            warn(f"{os.path.basename(__outfile__)} already exists -- skipping")
+        info(f"decompressing {filename}")
+        if re.fullmatch(r"^.*\.(rar)$", filename.lower()):
+            os.chdir(os.path.dirname(infilename))
+            infile = rarfile.RarFile(infilename)
+            infile.extractall()
+        elif re.fullmatch(r"^.*\.(zip|7z|tar|tar.gz|tar.xz|tar.bz2)$", filename.lower()):
+            os.chdir(os.path.dirname(infilename))
+            libarchive.extract_file(infilename)
         else:
             if re.fullmatch(r"^.*\.(gz)$", infilename.lower()):
                 infile = gzip.GzipFile(infilename, "rb")
@@ -145,54 +154,14 @@ def decompress_gbl(infilename: str) -> bool:
                 infile = lzma.LZMAFile(infilename, "rb")
             else:
                 raise ValueError("unknown file type")
-            info(f"decompressing {filename}")
-            outfile = open(__outfile__, "wb")
+            outfile = open(os.path.splitext(infilename)[0], "wb")
             copyfileobj(infile, outfile)
             outfile.close()
-            success(f"decompressing {filename} completed")
-        return True
-    except Exception as ex:
-        err(f"Error while decompressing {filename}: {str(ex)}")
-        remove(infilename)
-        return False
-
-
-def decompress_archive(infilename: str) -> bool:
-    filename: str = os.path.basename(infilename)
-    try:
-        os.chdir(os.path.dirname(infilename))
-        info(f"decompressing {filename}")
-        if re.fullmatch(r"^.*\.(rar)$", filename.lower()):
-            infile = rarfile.RarFile(infilename)
-            infile.extractall()
-        else:
-            libarchive.extract_file(infilename)
         success(f"decompressing {filename} completed")
-        return True
-    except Exception as ex:
-        err(f"Error while decompressing {filename}: {str(ex)}")
-        remove(infilename)
-        return False
-
-
-def decompress(infilename: str) -> bool:
-    filename: str = os.path.basename(infilename)
-
-    if not __decompress__:
-        return True
-    try:
-        if re.fullmatch(r"^.*\.(rar|zip|7z|tar|tar.gz|tar.xz|tar.bz2)$", filename.lower()):
-            decompress_archive(infilename)
-        elif re.fullmatch(r"^.*\.(gz|bz|bz2|lzma)$", filename.lower()):
-            decompress_gbl(infilename)
-        else:
-            return True
         clean(infilename)
-        return True
     except Exception as ex:
         err(f"Error while decompressing {filename}: {str(ex)}")
         remove(infilename)
-        return False
 
 
 def clean(filename: str) -> None:
