@@ -10,6 +10,10 @@
 #                                                                              #
 # AUTHORS                                                                      #
 # sepehrdad.dev@gmail.com                                                      #
+#                                                                              #
+# CONTRIBUTERS                                                                 #
+# noptrix@nullsecurity.net                                                     #
+#                                                                              #
 ################################################################################
 
 
@@ -70,7 +74,7 @@ def usage() -> None:
     __usage__ += f"  {__project__} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
     __usage__ += "options:\n\n"
     __usage__ += "  -f <num>   - download chosen wordlist - ? to list wordlists with id\n"
-    __usage__ += f"  -d <dir>   - wordlists base directory (default: {__wordlist_path__})\n"
+    __usage__ += "  -d <dir>   - wordlists base directory (default: /usr/share/wordlists)\n"
     __usage__ += "  -c <num>   - change wordlists category - ? to list wordlists categories\n"
     __usage__ += "  -s <regex> - wordlist to search using <regex> in base directory\n"
     __usage__ += "  -S <regex> - wordlist to search using <regex> in sites\n"
@@ -78,17 +82,15 @@ def usage() -> None:
     __usage__ += "  -X         - decompress wordlist\n"
     __usage__ += "  -F <str>   - list wordlists in categories given\n"
     __usage__ += "  -r         - remove compressed file after decompression\n"
-    __usage__ += f"  -t <num>   - max parallel downloads (default: {__max_parallel__})\n\n"
+    __usage__ += "  -t <num>   - max parallel downloads (default: 5)\n\n"
     __usage__ += "misc:\n\n"
-    __usage__ += "  -C         - disable terminal colors\n"
     __usage__ += "  -T         - disable torrent download\n"
-    __usage__ += "  -P         - set proxy (format: proto://user:pass@host:port)\n"
-    __usage__ += "  -A         - set useragent string\n"
+    __usage__ += "  -P <str>   - set proxy (format: proto://user:pass@host:port)\n"
+    __usage__ += "  -A <str>   - set useragent string\n"
     __usage__ += "  -Y         - proxy http\n"
     __usage__ += "  -Z         - proxy torrent\n"
-    __usage__ += "  -M         - use multiprocessing for parallelization\n"
     __usage__ += "  -N         - do not ask for any confirmation\n"
-    __usage__ += "  -I         - do not check for integrity\n"
+    __usage__ += "  -I         - skip integrity checks\n"
     __usage__ += "  -V         - print version of wordlistctl and exit\n"
     __usage__ += "  -H         - print this help and exit\n\n"
     __usage__ += "example:\n\n"
@@ -708,7 +710,7 @@ def arg_parse(argv: list) -> tuple:
     opFlag: int = 0
 
     try:
-        opts, _ = getopt.getopt(argv[1:], "ZIYHCNVXThrd:c:f:s:S:t:F:A:P:")
+        opts, _ = getopt.getopt(argv[1:], "ZIYHNVXThrd:c:f:s:S:t:F:A:P:")
 
         if opts.__len__() <= 0:
             __operation__ = usage
@@ -742,8 +744,6 @@ def arg_parse(argv: list) -> tuple:
                 __decompress__ = True
             elif opt == "-r":
                 __remove__ = True
-            elif opt == "-C":
-                os.environ["ANSI_COLORS_DISABLED"] = '1'
             elif opt == "-T":
                 __torrent_dl__ = False
             elif opt == "-Z":
