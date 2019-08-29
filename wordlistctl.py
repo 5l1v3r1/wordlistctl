@@ -17,11 +17,9 @@
 ################################################################################
 
 
-__author__: str = "Sepehrdad Sh"
-__organization__: str = "blackarch.org"
-__license__: str = "GPLv3"
 __version__: str = "0.8.8-dev"
 __project__: str = "wordlistctl"
+__organization__: str = "blackarch.org"
 
 __wordlist_path__: str = "/usr/share/wordlists"
 __category__: str = ""
@@ -70,65 +68,67 @@ def ask(question: str) -> str:
 
 
 def usage() -> None:
-    __usage__: str = "usage:\n\n"
-    __usage__ += f"  {__project__} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
-    __usage__ += "options:\n\n"
-    __usage__ += "  -f <num>   - download chosen wordlist - ? to list wordlists with id\n"
-    __usage__ += "  -d <dir>   - wordlists base directory (default: /usr/share/wordlists)\n"
-    __usage__ += "  -c <num>   - change wordlists category - ? to list wordlists categories\n"
-    __usage__ += "  -s <regex> - wordlist to search using <regex> in base directory\n"
-    __usage__ += "  -S <regex> - wordlist to search using <regex> in sites\n"
-    __usage__ += "  -h         - prefer http\n"
-    __usage__ += "  -X         - decompress wordlist\n"
-    __usage__ += "  -F <str>   - list wordlists in categories given\n"
-    __usage__ += "  -r         - remove compressed file after decompression\n"
-    __usage__ += "  -t <num>   - max parallel downloads (default: 5)\n\n"
-    __usage__ += "misc:\n\n"
-    __usage__ += "  -T         - disable torrent download\n"
-    __usage__ += "  -P <str>   - set proxy (format: proto://user:pass@host:port)\n"
-    __usage__ += "  -A <str>   - set useragent string\n"
-    __usage__ += "  -Y         - proxy http\n"
-    __usage__ += "  -Z         - proxy torrent\n"
-    __usage__ += "  -N         - do not ask for any confirmation\n"
-    __usage__ += "  -I         - skip integrity checks\n"
-    __usage__ += "  -V         - print version of wordlistctl and exit\n"
-    __usage__ += "  -H         - print this help and exit\n\n"
-    __usage__ += "example:\n\n"
-    __usage__ += "  # download and decompress all wordlists and remove archive\n"
-    __usage__ += "  $ wordlistctl -f 0 -Xr\n\n"
-    __usage__ += "  # download all wordlists in username category\n"
-    __usage__ += "  $ wordlistctl -f 0 -c 0\n\n"
-    __usage__ += "  # list all wordlists in password category with id\n"
-    __usage__ += "  $ wordlistctl -f ? -c 1\n\n"
-    __usage__ += "  # download and decompress all wordlists in misc category\n"
-    __usage__ += "  $ wordlistctl -f 0 -c 4 -X\n\n"
-    __usage__ += "  # download all wordlists in filename category using 20 threads\n"
-    __usage__ += "  $ wordlistctl -c 3 -f 0 -t 20\n\n"
-    __usage__ += "  # download wordlist with id 2 to \"~/wordlists\" directory using http\n"
-    __usage__ += "  $ wordlistctl -f 2 -d ~/wordlists -h\n\n"
-    __usage__ += "  # print wordlists in username and password categories\n"
-    __usage__ += "  $ wordlistctl -F username,password\n\n"
-    __usage__ += "  # download all wordlists with using tor socks5 proxy\n"
-    __usage__ += "  $ wordlistctl -f 0 -P \"socks5://127.0.0.1:9050\" -Y\n\n"
-    __usage__ += "  # download all wordlists with using http proxy and noleak useragent\n"
-    __usage__ += "  $ wordlistctl -f 0 -P \"http://127.0.0.1:9060\" -Y -A \"noleak\"\n\n"
-    __usage__ += "notes:\n\n"
-    __usage__ += "  * Wordlist's id are relative to the category that is chosen\n"
-    __usage__ += "    and are not global, so by changing the category Wordlist's\n"
-    __usage__ += "    id changes. E.g.: -f 1337 != -c 1 -f 1337. use -f ? -c 1\n"
-    __usage__ += "    to get the real id for a given password list.\n"
+    str_usage: str = "usage:\n\n"
+    str_usage += f"  {__project__} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
+    str_usage += "options:\n\n"
+    str_usage += "  -f <num>   - download chosen wordlist - ? to list wordlists with id\n"
+    str_usage += "  -d <dir>   - wordlists base directory (default: /usr/share/wordlists)\n"
+    str_usage += "  -c <num>   - change wordlists category - ? to list wordlists categories\n"
+    str_usage += "  -s <regex> - wordlist to search using <regex> in base directory\n"
+    str_usage += "  -S <regex> - wordlist to search using <regex> in sites\n"
+    str_usage += "  -h         - prefer http\n"
+    str_usage += "  -X         - decompress wordlist\n"
+    str_usage += "  -F <str>   - list wordlists in categories given\n"
+    str_usage += "  -r         - remove compressed file after decompression\n"
+    str_usage += "  -t <num>   - max parallel downloads (default: 5)\n\n"
+    str_usage += "misc:\n\n"
+    str_usage += "  -T         - disable torrent download\n"
+    str_usage += "  -P <str>   - set proxy (format: proto://user:pass@host:port)\n"
+    str_usage += "  -A <str>   - set useragent string\n"
+    str_usage += "  -Y         - proxy http\n"
+    str_usage += "  -Z         - proxy torrent\n"
+    str_usage += "  -N         - do not ask for any confirmation\n"
+    str_usage += "  -I         - skip integrity checks\n"
+    str_usage += f"  -V         - print version of {__project__} and exit\n"
+    str_usage += "  -H         - print this help and exit\n\n"
+    str_usage += "example:\n\n"
+    str_usage += "  # download and decompress all wordlists and remove archive\n"
+    str_usage += f"  $ {__project__} -f 0 -Xr\n\n"
+    str_usage += "  # download all wordlists in username category\n"
+    str_usage += f"  $ {__project__} -f 0 -c 0\n\n"
+    str_usage += "  # list all wordlists in password category with id\n"
+    str_usage += f"  $ {__project__} -f ? -c 1\n\n"
+    str_usage += "  # download and decompress all wordlists in misc category\n"
+    str_usage += f"  $ {__project__} -f 0 -c 4 -X\n\n"
+    str_usage += "  # download all wordlists in filename category using 20 threads\n"
+    str_usage += f"  $ {__project__} -c 3 -f 0 -t 20\n\n"
+    str_usage += "  # download wordlist with id 2 to \"~/wordlists\" directory using http\n"
+    str_usage += f"  $ {__project__} -f 2 -d ~/wordlists -h\n\n"
+    str_usage += "  # print wordlists in username and password categories\n"
+    str_usage += f"  $ {__project__} -F username,password\n\n"
+    str_usage += "  # download all wordlists with using tor socks5 proxy\n"
+    str_usage += f"  $ {__project__} -f 0 -P \"socks5://127.0.0.1:9050\" -Y\n\n"
+    str_usage += "  # download all wordlists with using http proxy and noleak useragent\n"
+    str_usage += f"  $ {__project__} -f 0 -P \"http://127.0.0.1:9060\" -Y -A \"noleak\"\n\n"
+    str_usage += "notes:\n\n"
+    str_usage += "  * Wordlist's id are relative to the category that is chosen\n"
+    str_usage += "    and are not global, so by changing the category Wordlist's\n"
+    str_usage += "    id changes. E.g.: -f 1337 != -c 1 -f 1337. use -f ? -c 1\n"
+    str_usage += "    to get the real id for a given password list.\n\n"
+    str_usage += "  * In order to disable color terminal set ANSI_COLORS_DISABLED\n"
+    str_usage += "    enviroment variable to 1.\n"
+    str_usage += f"    E.g.: ANSI_COLORS_DISABLED=1 {__project__} -H\n"
 
-    print(__usage__)
+    print(str_usage)
 
 
 def version() -> None:
-    __str_version__: str = f"{__project__} v{__version__}"
-    print(__str_version__)
+    print(f"{__project__} v{__version__}")
 
 
 def banner():
-    __str_banner__: str = f"--==[ {__project__} by {__organization__} ]==--\n"
-    print(colored(__str_banner__, "red", attrs=["bold"]))
+    print(colored(f"--==[ {__project__} by {__organization__} ]==--\n", 
+                                                        "red", attrs=["bold"]))
 
 
 def decompress(infilename: str) -> None:
@@ -650,7 +650,7 @@ def change_category(code: str) -> None:
     try:
         if (__category_id__ >= list(__config__.keys()).__len__()) or __category_id__ < 0:
             raise IndexError(f"{code} is not a valid category id")
-        __category__: str = list(__config__.keys())[__category_id__]
+        __category__ = list(__config__.keys())[__category_id__]
     except Exception as ex:
         err(f"Error while changing category: {str(ex)}")
         exit(-1)
@@ -676,7 +676,7 @@ def load_config() -> None:
         try:
             if not os.path.isfile(configfile):
                 raise FileNotFoundError("Config file not found")
-            __config__: dict = load_json(configfile)
+            __config__ = load_json(configfile)
             for i in __config__.keys():
                 __errored__[i] = {"files": []}
         except Exception as ex:
@@ -845,7 +845,6 @@ if __name__ == "__main__":
         from bs4 import BeautifulSoup
         from termcolor import colored
         from concurrent.futures import ThreadPoolExecutor
-        from concurrent.futures import ProcessPoolExecutor
     except Exception as ex:
         err(f"Error while loading dependencies: {str(ex)}")
         exit(-1)
