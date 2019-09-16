@@ -17,6 +17,33 @@
 ################################################################################
 
 
+# Load Deps
+import warnings
+import sys
+import os
+import getopt
+import requests
+import re
+import time
+import json
+from gzip import GzipFile
+from bz2 import BZ2File
+from lzma import LZMAFile
+from hashlib import md5
+from shutil import copyfileobj
+from concurrent.futures import ThreadPoolExecutor
+
+try:
+    import libtorrent
+    import libarchive
+    from rarfile import RarFile
+    from bs4 import BeautifulSoup
+    from termcolor import colored
+except Exception as ex:
+    print(f"Error while loading dependencies: {str(ex)}", file=sys.stderr)
+    exit(-1)
+
+
 __version__: str = "0.8.8-dev"
 __project__: str = "wordlistctl"
 __organization__: str = "blackarch.org"
@@ -37,7 +64,6 @@ __proxy__: dict = {}
 __proxy_http__: bool = False
 __proxy_torrent__: bool = False
 __chunk_size__: int = 1024
-__errored__: dict = {}
 __no_confirm__: bool = False
 __no_integrity_check__: bool = False
 __max_retry__: int = 3
@@ -58,13 +84,6 @@ def info(string: str) -> None:
 def success(string: str) -> None:
     print(colored("[+]", "green", attrs=["bold"]), f" {string}")
 
-
-def ask(question: str) -> str:
-    global __no_confirm__
-    print(colored("[?]", "blue", attrs=["bold"]), f" {question}", end='')
-    if __no_confirm__:
-        return ''
-    return input()
 
 
 def usage() -> None:
@@ -131,38 +150,29 @@ def banner():
                                                         "red", attrs=["bold"]))
 
 
-def decompress(infilename: str) -> None:
-    filename: str = os.path.basename(infilename)
-
-    if not __decompress__:
-        return
-
-    try:
-        info(f"decompressing {filename}")
-        if re.fullmatch(r"^.*\.(rar)$", filename.lower()):
-            os.chdir(os.path.dirname(infilename))
-            infile = rarfile.RarFile(infilename)
-            infile.extractall()
-        elif re.fullmatch(r"^.*\.(zip|7z|tar|tar.gz|tar.xz|tar.bz2)$", filename.lower()):
-            os.chdir(os.path.dirname(infilename))
-            libarchive.extract_file(infilename)
+def decompress(filepath: str) -> None:
+    filename: str = os.path.basename(filepath)
+    info(f"decompressing {filename}")
+    if re.fullmatch(r"^.*\.(rar)$", filename.lower()):
+        os.chdir(os.path.dirname(filepath))
+        infile = RarFile(filepath)
+        infile.extractall()
+    elif re.fullmatch(r"^.*\.(zip|7z|tar|tar.gz|tar.xz|tar.bz2)$", filename.lower()):
+        os.chdir(os.path.dirname(filepath))
+        libarchive.extract_file(filepath)
+    else:
+        if re.fullmatch(r"^.*\.(gz)$", filepath.lower()):
+            infile = GzipFile(filepath, "rb")
+        elif re.fullmatch(r"^.*\.(bz|bz2)$", filepath.lower()):
+            infile = BZ2File(filepath, "rb")
+        elif re.fullmatch(r"^.*\.(lzma|xz)$", filepath.lower()):
+            infile = LZMAFile(filepath, "rb")
         else:
-            if re.fullmatch(r"^.*\.(gz)$", infilename.lower()):
-                infile = gzip.GzipFile(infilename, "rb")
-            elif re.fullmatch(r"^.*\.(bz|bz2)$", infilename.lower()):
-                infile = bz2.BZ2File(infilename, "rb")
-            elif re.fullmatch(r"^.*\.(lzma|xz)$", infilename.lower()):
-                infile = lzma.LZMAFile(infilename, "rb")
-            else:
-                raise ValueError("unknown file type")
-            outfile = open(os.path.splitext(infilename)[0], "wb")
-            copyfileobj(infile, outfile)
-            outfile.close()
-        success(f"decompressing {filename} completed")
-        clean(infilename)
-    except Exception as ex:
-        err(f"Error while decompressing {filename}: {str(ex)}")
-        remove(infilename)
+            raise ValueError("unknown file type")
+        outfile = open(os.path.splitext(filepath)[0], "wb")
+        copyfileobj(infile, outfile)
+        outfile.close()
+    success(f"decompressing {filename} completed")
 
 
 def clean(filename: str) -> None:
@@ -298,14 +308,13 @@ def torrent_setup_proxy() -> None:
         exit(-1)
 
 
-def integrity_check(checksum: str, path: str) -> bool:
+def integrity_check(checksum: str, path: str) -> None:
     global __chunk_size__
     global __no_integrity_check__
     filename = os.path.basename(path)
     info(f"checking {filename} integrity")
     if checksum == 'SKIP' or __no_integrity_check__:
         warn(f"{filename} integrity check -- skipping")
-        return True
     hashagent = md5()
     fp = open(path, 'rb')
     while True:
@@ -314,14 +323,10 @@ def integrity_check(checksum: str, path: str) -> bool:
             break
         hashagent.update(data)
     if checksum != hashagent.hexdigest():
-        err(f"{filename} integrity check -- failed")
-        return False
-    else:
-        success(f"{filename} integrity check -- passed")
-        return True
+        raise IOError(f"{filename} integrity check -- failed")
 
 
-def fetch_file(url: str, path: str, checksum: str) -> bool:
+def fetch_file(url: str, path: str) -> None:
     global __proxy__
     global __proxy_http__
     global __chunk_size__
@@ -329,35 +334,22 @@ def fetch_file(url: str, path: str, checksum: str) -> bool:
     if __proxy_http__:
         proxy = __proxy__
     filename: str = os.path.basename(path)
-    try:
-        if check_file(path):
-            warn(f"{filename} already exists -- skipping")
-        else:
-            info(f"downloading {filename} to {path}")
-            dlurl = resolve(url)
-            rq = requests.get(dlurl, stream=True,
-                              headers={"User-Agent": __useragent__},
-                              proxies=proxy)
-            fp = open(path, "wb")
-            for data in rq.iter_content(chunk_size=__chunk_size__):
-                fp.write(data)
-            fp.close()
-            success(f"downloading {filename} completed")
-        if (not integrity_check(checksum, path)) or (not decompress(path)):
-            raise IOError()
-        return True
-    except KeyboardInterrupt:
-        return True
-    except Exception as ex:
-        str_ex = str(ex)
-        if str_ex.__len__() > 0:
-            str_ex = ": " + str_ex
-        err(f"Error while downloading {url}{str_ex}")
-        remove(path)
-        return False
+    if check_file(path):
+        warn(f"{filename} already exists -- skipping")
+    else:
+        info(f"downloading {filename} to {path}")
+        dlurl = resolve(url)
+        rq = requests.get(dlurl, stream=True,
+                            headers={"User-Agent": __useragent__},
+                            proxies=proxy)
+        fp = open(path, "wb")
+        for data in rq.iter_content(chunk_size=__chunk_size__):
+            fp.write(data)
+        fp.close()
+        success(f"downloading {filename} completed")
 
 
-def fetch_torrent(url: str, path: str) -> bool:
+def fetch_torrent(url: str, path: str) -> None:
     global __session__
     global __proxy__
     global __torrent_dl__
@@ -370,98 +362,82 @@ def fetch_torrent(url: str, path: str) -> bool:
     if str(url).startswith("magnet:?"):
         magnet = True
     handle = None
-    try:
+    if magnet:
+        handle = libtorrent.add_magnet_uri(
+            __session__, url,
+            {
+                "save_path": os.path.dirname(path),
+                "storage_mode": libtorrent.storage_mode_t(2),
+                "paused": False,
+                "auto_managed": True,
+                "duplicate_is_error": True
+            }
+        )
+        info("downloading metadata\n")
+        while not handle.has_metadata():
+            time.sleep(0.1)
+        success("downloaded metadata")
+    else:
 
-        if magnet:
-            handle = libtorrent.add_magnet_uri(
-                __session__, url,
+        if not __torrent_dl__:
+            return
+        if os.path.isfile(path):
+            handle = __session__.add_torrent(
                 {
-                    "save_path": os.path.dirname(path),
-                    "storage_mode": libtorrent.storage_mode_t(2),
-                    "paused": False,
-                    "auto_managed": True,
-                    "duplicate_is_error": True
+                    "ti": libtorrent.torrent_info(path),
+                    "save_path": os.path.dirname(path)
                 }
             )
-            info("downloading metadata\n")
-            while not handle.has_metadata():
-                time.sleep(0.1)
-            success("downloaded metadata")
+            remove(path)
         else:
-
-            if not __torrent_dl__:
-                return True
-            if os.path.isfile(path):
-                handle = __session__.add_torrent(
-                    {
-                        "ti": libtorrent.torrent_info(path),
-                        "save_path": os.path.dirname(path)
-                    }
-                )
-                remove(path)
-            else:
-                err(f"{path} not found")
-                exit(-1)
-        __outfilename__ = f"{os.path.dirname(path)}/{handle.name()}"
-        info(f"downloading {handle.name()} to {__outfilename__}")
-        while not handle.is_seed():
-            time.sleep(0.1)
-        __session__.remove_torrent(handle)
-        success(f"downloading {handle.name()} completed")
-        if not decompress(__outfilename__):
-            raise IOError()
-        return True
-    except KeyboardInterrupt:
-        return True
-    except Exception as ex:
-        str_ex = str(ex)
-        if str_ex.__len__() > 0:
-            str_ex = ": " + str_ex
-        err(f"Error while downloading {url}{str_ex}")
-        remove(path)
-        return False
+            err(f"{path} not found")
+            exit(-1)
+    __outfilename__ = f"{os.path.dirname(path)}/{handle.name()}"
+    info(f"downloading {handle.name()} to {__outfilename__}")
+    while not handle.is_seed():
+        time.sleep(0.1)
+    __session__.remove_torrent(handle)
+    success(f"downloading {handle.name()} completed")
+    decompress(__outfilename__)
 
 
 def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
-    global __errored__
-    __filename__: str = ""
-    __file_directory__: str = ""
-    __file_path__: str = ""
+    filename: str = ""
+    file_directory: str = ""
+    file_path: str = ""
     check_dir(f"{__wordlist_path__}/{category}")
-    __file_directory__ = f"{__wordlist_path__}/{category}"
-    res: bool = True
+    file_directory = f"{__wordlist_path__}/{category}"
+
     try:
-        urls: list = config["url"]
-        urls.sort()
-        url: str = ""
-        if __prefer_http__:
-            url = urls[0]
-        else:
-            url = urls[-1]
-        __filename__ = url.split('/')[-1]
-        __file_path__ = f"{__file_directory__}/{__filename__}"
-        __csum__ = config["sum"][config["url"].index(url)]
-        if url.startswith("http"):
-            res = fetch_file(url, __file_path__, __csum__)
-        else:
-            if url.replace("torrent+", "").startswith("magnet:?"):
-                res = fetch_torrent(url.replace("torrent+", ""), __file_path__)
-            else:
-                res = fetch_file(url.replace("torrent+", ""),
-                                 __file_path__, __csum__)
-                if not res:
-                    raise IOError()
-                res = fetch_torrent(url, __file_path__)
+        for _ in range(0, __max_retry__ +1):
+            try:
 
-        if not res:
-            raise IOError()
+                urls: list = config["url"]
+                urls.sort()
+                url: str = ""
+                if __prefer_http__:
+                    url = urls[0]
+                else:
+                    url = urls[-1]
+                filename = url.split('/')[-1]
+                file_path = f"{file_directory}/{filename}"
+                csum = config["sum"][config["url"].index(url)]
+                if url.startswith("http"):
+                    fetch_file(url, file_path)
+                    integrity_check(csum, file_path)
+                    decompress(file_path)
+                else:
+                    if url.replace("torrent+", "").startswith("magnet:?"):
+                        fetch_torrent(url.replace("torrent+", ""), file_path)
+                    else:
+                        fetch_file(url.replace("torrent+", ""), file_path)
+                        integrity_check(csum, file_path)
+                        fetch_torrent(url, file_path)
+                break
+            except Exception as ex:
+                err(f"Error while downloading {wordlistname}: {str(ex)}")
+                remove(file_path)
 
-    except Exception as ex:
-        str_ex = str(ex)
-        if str_ex.__len__() > 0:
-            str_ex = ": " + str_ex
-        err(f"Error while downloading {wordlistname}{str_ex}")
-        __errored__[category]["files"].append(config)
 
 
 def download_wordlists(code: str) -> None:
@@ -506,30 +482,8 @@ def download_wordlists(code: str) -> None:
                 __executer__.submit(download_wordlist, j, j["name"], i)
         __executer__.shutdown(wait=True)
         errored: int = 0
-        for i in __errored__.keys():
-            errored += __errored__[i]["files"].__len__()
-        if errored > 0:
-            ans = ask(
-                "Some wordlists were not downloaded would you like to redownload? [y/N]")
-            if ans.lower() == 'n' or ans.lower() == '':
-                return
-            elif ans.lower() != 'y':
-                err("invalid answer")
-                exit(-1)
-            redownload()
     except Exception as ex:
         err(f"Error unable to download wordlist: {str(ex)}")
-
-
-def redownload() -> None:
-    global __errored__
-    global __executer__
-    info("redownloading unsuccessful downloads")
-    __executer__ = ThreadPoolExecutor(__max_parallel__)
-    for i in __errored__.keys():
-        for j in __errored__[i]["files"]:
-            __executer__.submit(download_wordlist, j, j["name"], i)
-    __executer__.shutdown(wait=True)
 
 
 def print_wordlists(categories: str = "") -> None:
@@ -635,14 +589,6 @@ def check_proxy(proxy: dict) -> bool:
         exit(-1)
 
 
-def load_json(infilename: str) -> dict:
-    try:
-        return json.load(open(infilename, 'r'))
-    except Exception as ex:
-        err(f"unable to load {infilename}: {str(ex)}")
-        return {}
-
-
 def change_category(code: str) -> None:
     global __category__
     global __config__
@@ -670,15 +616,12 @@ def print_categories() -> None:
 
 def load_config() -> None:
     global __config__
-    global __errored__
     configfile: str = f"{os.path.dirname(os.path.realpath(__file__))}/config.json"
     if __config__.__len__() <= 0:
         try:
             if not os.path.isfile(configfile):
                 raise FileNotFoundError("Config file not found")
-            __config__ = load_json(configfile)
-            for i in __config__.keys():
-                __errored__[i] = {"files": []}
+            __config__ = json.load(open(configfile, 'r'))
         except Exception as ex:
             err(f"Error while loading config files: {str(ex)}")
             exit(-1)
@@ -824,29 +767,5 @@ def main(argv: list) -> int:
 
 
 if __name__ == "__main__":
-    try:
-        import warnings
-        warnings.simplefilter('ignore')
-        import sys
-        import os
-        import getopt
-        import requests
-        import re
-        import libtorrent
-        import libarchive
-        import time
-        import gzip
-        import bz2
-        import lzma
-        import rarfile
-        import json
-        from hashlib import md5
-        from shutil import copyfileobj
-        from bs4 import BeautifulSoup
-        from termcolor import colored
-        from concurrent.futures import ThreadPoolExecutor
-    except Exception as ex:
-        err(f"Error while loading dependencies: {str(ex)}")
-        exit(-1)
-
+    warnings.simplefilter('ignore')
     sys.exit(main(sys.argv))
