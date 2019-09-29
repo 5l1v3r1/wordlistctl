@@ -50,7 +50,7 @@ __organization__: str = "blackarch.org"
 
 __wordlist_path__: str = "/usr/share/wordlists"
 __category__: str = ""
-__config__: dict = {}
+__repo__: dict = {}
 __decompress__: bool = False
 __remove__: bool = False
 __prefer_http__: bool = False
@@ -360,7 +360,7 @@ def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
 
 
 def download_wordlists(code: str) -> None:
-    global __config__
+    global __repo__
     global __executer__
     __wordlist_id__: int = 0
 
@@ -368,8 +368,8 @@ def download_wordlists(code: str) -> None:
 
     __wordlist_id__: int = to_int(code)
     __wordlists_count__: int = 0
-    for i in __config__.keys():
-        __wordlists_count__ += __config__[i]["count"]
+    for i in __repo__.keys():
+        __wordlists_count__ += __repo__[i]["count"]
 
     lst: dict = {}
 
@@ -378,24 +378,24 @@ def download_wordlists(code: str) -> None:
             raise IndexError(f"{code} is not a valid wordlist id")
         elif __wordlist_id__ == 0:
             if __category__ == "":
-                lst = __config__
+                lst = __repo__
             else:
-                lst[__category__] = __config__[__category__]
+                lst[__category__] = __repo__[__category__]
         elif __category__ != "":
             lst[__category__] = {
-                "files": [__config__[__category__]["files"][__wordlist_id__ - 1]]
+                "files": [__repo__[__category__]["files"][__wordlist_id__ - 1]]
             }
         else:
             cat: str = ""
             count: int = 0
             wid: int = 0
-            for i in __config__.keys():
-                count += __config__[i]["count"]
+            for i in __repo__.keys():
+                count += __repo__[i]["count"]
                 if (__wordlist_id__ - 1) < (count):
                     cat = i
                     break
             wid = (__wordlist_id__ - 1) - count
-            lst[cat] = {"files": [__config__[cat]["files"][wid]]}
+            lst[cat] = {"files": [__repo__[cat]["files"][wid]]}
         for i in lst.keys():
             for j in lst[i]["files"]:
                 __executer__.submit(download_wordlist, j, j["name"], i)
@@ -406,16 +406,16 @@ def download_wordlists(code: str) -> None:
 
 
 def print_wordlists(categories: str = "") -> None:
-    global __config__
+    global __repo__
     if categories == "":
         lst: list = []
         success("available wordlists:\n")
         print("    > 0  - all wordlists")
         if __category__ != "":
-            lst = __config__[__category__]["files"]
+            lst = __repo__[__category__]["files"]
         else:
-            for i in __config__.keys():
-                lst += __config__[i]["files"]
+            for i in __repo__.keys():
+                lst += __repo__[i]["files"]
 
         for i in lst:
             id = lst.index(i) + 1
@@ -427,12 +427,12 @@ def print_wordlists(categories: str = "") -> None:
     else:
         categories_list: set = set([i.strip() for i in categories.split(',')])
         for i in categories_list:
-            if i not in __config__.keys():
+            if i not in __repo__.keys():
                 err(f"category {i} is unavailable")
                 exit(-1)
         for i in categories_list:
             success(f"{i}:")
-            for j in __config__[i]["files"]:
+            for j in __repo__[i]["files"]:
                 name = j["name"]
                 compsize = to_readable_size(j["size"][0])
                 decompsize = to_readable_size(j["size"][1])
@@ -458,13 +458,13 @@ def search_dir(regex: str) -> None:
 def search_sites(regex: str) -> None:
     count: int = 0
     lst: list = []
-    info(f"searching for {regex} in config.json\n")
+    info(f"searching for {regex} in repo.json\n")
     try:
         if __category__ != "":
-            lst = __config__[__category__]["files"]
+            lst = __repo__[__category__]["files"]
         else:
-            for i in __config__.keys():
-                lst += __config__[i]["files"]
+            for i in __repo__.keys():
+                lst += __repo__[i]["files"]
 
         for i in lst:
             name = i["name"]
@@ -499,12 +499,12 @@ def check_file(path: str) -> bool:
 
 def change_category(code: str) -> None:
     global __category__
-    global __config__
+    global __repo__
     __category_id__: int = to_int(code)
     try:
-        if (__category_id__ >= list(__config__.keys()).__len__()) or __category_id__ < 0:
+        if (__category_id__ >= list(__repo__.keys()).__len__()) or __category_id__ < 0:
             raise IndexError(f"{code} is not a valid category id")
-        __category__ = list(__config__.keys())[__category_id__]
+        __category__ = list(__repo__.keys())[__category_id__]
     except Exception as ex:
         err(f"Error while changing category: {str(ex)}")
         exit(-1)
@@ -513,23 +513,23 @@ def change_category(code: str) -> None:
 def print_categories() -> None:
     index: int = 0
     success("available wordlists category:\n")
-    for i in __config__.keys():
-        count = __config__[i]["count"]
-        compsize = to_readable_size(__config__[i]["size"][0])
-        decompsize = to_readable_size(__config__[i]["size"][1])
+    for i in __repo__.keys():
+        count = __repo__[i]["count"]
+        compsize = to_readable_size(__repo__[i]["size"][0])
+        decompsize = to_readable_size(__repo__[i]["size"][1])
         print(f"    > {index}  - {i} ({count} lsts, {compsize}, {decompsize})")
         index += 1
     print("")
 
 
 def load_config() -> None:
-    global __config__
-    configfile: str = f"{os.path.dirname(os.path.realpath(__file__))}/config.json"
-    if __config__.__len__() <= 0:
+    global __repo__
+    configfile: str = f"{os.path.dirname(os.path.realpath(__file__))}/repo.json"
+    if __repo__.__len__() <= 0:
         try:
             if not os.path.isfile(configfile):
                 raise FileNotFoundError("Config file not found")
-            __config__ = json.load(open(configfile, 'r'))
+            __repo__ = json.load(open(configfile, 'r'))
         except Exception as ex:
             err(f"Error while loading config files: {str(ex)}")
             exit(-1)
