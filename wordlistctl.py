@@ -10,9 +10,8 @@
 #                                                                              #
 # AUTHORS                                                                      #
 # sepehrdad.dev@gmail.com                                                      #
-#                                                                              #
-# CONTRIBUTERS                                                                 #
 # noptrix@nullsecurity.net                                                     #
+#                                                                              #
 #                                                                              #
 ################################################################################
 
@@ -44,26 +43,26 @@ except Exception as ex:
     exit(-1)
 
 
-__version__: str = "0.8.8-dev"
-__project__: str = "wordlistctl"
-__organization__: str = "blackarch.org"
+version_number: str = "0.8.8-dev"
+project_name: str = "wordlistctl"
+organization: str = "blackarch.org"
 
-__wordlist_path__: str = "/usr/share/wordlists"
-__category__: str = ""
-__repo__: dict = {}
-__decompress__: bool = False
-__remove__: bool = False
-__prefer_http__: bool = False
-__torrent_dl__: bool = True
+wordlist_path: str = "/usr/share/wordlists"
+wordlist_repo: dict = {}
 
-__executer__ = None
-__max_parallel__: int = 5
-__session__ = None
-__useragent__: str = "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0"
-__chunk_size__: int = 1024
-__no_confirm__: bool = False
-__no_integrity_check__: bool = False
-__max_retry__: int = 3
+selected_category: str = ""
+decompress_archive: bool = False
+remove_archive: bool = False
+prefer_http: bool = False
+torrent_dl: bool = True
+
+parallel_executer = None
+max_parallel: int = 5
+torrent_session = None
+useragent_string: str = "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0"
+chunk_size: int = 1024
+skip_integrity_check: bool = False
+max_retry: int = 3
 
 
 def err(string: str) -> None:
@@ -84,7 +83,7 @@ def success(string: str) -> None:
 
 def usage() -> None:
     str_usage: str = "usage:\n\n"
-    str_usage += f"  {__project__} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
+    str_usage += f"  {project_name} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
     str_usage += "options:\n\n"
     str_usage += "  -f <num>   - download chosen wordlist - ? to list wordlists with id\n"
     str_usage += "  -d <dir>   - wordlists base directory (default: /usr/share/wordlists)\n"
@@ -99,27 +98,26 @@ def usage() -> None:
     str_usage += "misc:\n\n"
     str_usage += "  -T         - disable torrent download\n"
     str_usage += "  -A <str>   - set useragent string\n"
-    str_usage += "  -N         - do not ask for any confirmation\n"
     str_usage += "  -I         - skip integrity checks\n"
-    str_usage += f"  -V         - print version of {__project__} and exit\n"
+    str_usage += f"  -V         - print version of {project_name} and exit\n"
     str_usage += "  -H         - print this help and exit\n\n"
     str_usage += "example:\n\n"
     str_usage += "  # download and decompress all wordlists and remove archive\n"
-    str_usage += f"  $ {__project__} -f 0 -Xr\n\n"
+    str_usage += f"  $ {project_name} -f 0 -Xr\n\n"
     str_usage += "  # download all wordlists in username category\n"
-    str_usage += f"  $ {__project__} -f 0 -c 0\n\n"
+    str_usage += f"  $ {project_name} -f 0 -c 0\n\n"
     str_usage += "  # list all wordlists in password category with id\n"
-    str_usage += f"  $ {__project__} -f ? -c 1\n\n"
+    str_usage += f"  $ {project_name} -f ? -c 1\n\n"
     str_usage += "  # download and decompress all wordlists in misc category\n"
-    str_usage += f"  $ {__project__} -f 0 -c 4 -X\n\n"
+    str_usage += f"  $ {project_name} -f 0 -c 4 -X\n\n"
     str_usage += "  # download all wordlists in filename category using 20 threads\n"
-    str_usage += f"  $ {__project__} -c 3 -f 0 -t 20\n\n"
+    str_usage += f"  $ {project_name} -c 3 -f 0 -t 20\n\n"
     str_usage += "  # download wordlist with id 2 to \"~/wordlists\" directory using http\n"
-    str_usage += f"  $ {__project__} -f 2 -d ~/wordlists -h\n\n"
+    str_usage += f"  $ {project_name} -f 2 -d ~/wordlists -h\n\n"
     str_usage += "  # print wordlists in username and password categories\n"
-    str_usage += f"  $ {__project__} -F username,password\n\n"
+    str_usage += f"  $ {project_name} -F username,password\n\n"
     str_usage += "  # download all wordlists with using noleak useragent\n"
-    str_usage += f"  $ {__project__} -f 0 -A \"noleak\"\n\n"
+    str_usage += f"  $ {project_name} -f 0 -A \"noleak\"\n\n"
     str_usage += "notes:\n\n"
     str_usage += "  * Wordlist's id are relative to the category that is chosen\n"
     str_usage += "    and are not global, so by changing the category Wordlist's\n"
@@ -127,17 +125,17 @@ def usage() -> None:
     str_usage += "    to get the real id for a given password list.\n\n"
     str_usage += "  * In order to disable color terminal set ANSI_COLORS_DISABLED\n"
     str_usage += "    enviroment variable to 1.\n"
-    str_usage += f"    E.g.: ANSI_COLORS_DISABLED=1 {__project__} -H\n"
+    str_usage += f"    E.g.: ANSI_COLORS_DISABLED=1 {project_name} -H\n"
 
     print(str_usage)
 
 
 def version() -> None:
-    print(f"{__project__} v{__version__}")
+    print(f"{project_name} v{version_number}")
 
 
 def banner():
-    print(colored(f"--==[ {__project__} by {__organization__} ]==--\n",
+    print(colored(f"--==[ {project_name} by {organization} ]==--\n",
                   "red", attrs=["bold"]))
 
 
@@ -167,7 +165,7 @@ def decompress(filepath: str) -> None:
 
 
 def clean(filename: str) -> None:
-    if __remove__:
+    if remove_archive:
         remove(filename)
 
 
@@ -239,16 +237,16 @@ def to_readable_size(size: float) -> str:
 
 
 def integrity_check(checksum: str, path: str) -> None:
-    global __chunk_size__
-    global __no_integrity_check__
+    global chunk_size
+    global skip_integrity_check
     filename = os.path.basename(path)
     info(f"checking {filename} integrity")
-    if checksum == 'SKIP' or __no_integrity_check__:
+    if checksum == 'SKIP' or skip_integrity_check:
         warn(f"{filename} integrity check -- skipping")
     hashagent = md5()
     fp = open(path, 'rb')
     while True:
-        data = fp.read(__chunk_size__)
+        data = fp.read(chunk_size)
         if not data:
             break
         hashagent.update(data)
@@ -257,7 +255,7 @@ def integrity_check(checksum: str, path: str) -> None:
 
 
 def fetch_file(url: str, path: str) -> None:
-    global __chunk_size__
+    global chunk_size
     filename: str = os.path.basename(path)
     if check_file(path):
         warn(f"{filename} already exists -- skipping")
@@ -265,27 +263,28 @@ def fetch_file(url: str, path: str) -> None:
         info(f"downloading {filename} to {path}")
         dlurl = resolve(url)
         rq = requests.get(dlurl, stream=True,
-                          headers={"User-Agent": __useragent__})
+                          headers={"User-Agent": useragent_string})
         fp = open(path, "wb")
-        for data in rq.iter_content(chunk_size=__chunk_size__):
+        for data in rq.iter_content(chunk_size=chunk_size):
             fp.write(data)
         fp.close()
         success(f"downloading {filename} completed")
 
 
 def fetch_torrent(url: str, path: str) -> None:
-    global __session__
-    global __torrent_dl__
-    if __session__ is None:
-        __session__ = libtorrent.session({"listen_interfaces": "0.0.0.0:6881"})
-        __session__.start_dht()
+    global torrent_session
+    global torrent_dl
+    if torrent_session is None:
+        torrent_session = libtorrent.session(
+            {"listen_interfaces": "0.0.0.0:6881"})
+        torrent_session.start_dht()
     magnet = False
     if str(url).startswith("magnet:?"):
         magnet = True
     handle = None
     if magnet:
         handle = libtorrent.add_magnet_uri(
-            __session__, url,
+            torrent_session, url,
             {
                 "save_path": os.path.dirname(path),
                 "storage_mode": libtorrent.storage_mode_t(2),
@@ -300,10 +299,10 @@ def fetch_torrent(url: str, path: str) -> None:
         success("downloaded metadata")
     else:
 
-        if not __torrent_dl__:
+        if not torrent_dl:
             return
         if os.path.isfile(path):
-            handle = __session__.add_torrent(
+            handle = torrent_session.add_torrent(
                 {
                     "ti": libtorrent.torrent_info(path),
                     "save_path": os.path.dirname(path)
@@ -317,7 +316,7 @@ def fetch_torrent(url: str, path: str) -> None:
     info(f"downloading {handle.name()} to {__outfilename__}")
     while not handle.is_seed():
         time.sleep(0.1)
-    __session__.remove_torrent(handle)
+    torrent_session.remove_torrent(handle)
     success(f"downloading {handle.name()} completed")
     decompress(__outfilename__)
 
@@ -326,16 +325,16 @@ def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
     filename: str = ""
     file_directory: str = ""
     file_path: str = ""
-    check_dir(f"{__wordlist_path__}/{category}")
-    file_directory = f"{__wordlist_path__}/{category}"
+    check_dir(f"{wordlist_path}/{category}")
+    file_directory = f"{wordlist_path}/{category}"
 
-    for _ in range(0, __max_retry__ + 1):
+    for _ in range(0, max_retry + 1):
         try:
 
             urls: list = config["url"]
             urls.sort()
             url: str = ""
-            if __prefer_http__:
+            if prefer_http:
                 url = urls[0]
             else:
                 url = urls[-1]
@@ -360,16 +359,16 @@ def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
 
 
 def download_wordlists(code: str) -> None:
-    global __repo__
-    global __executer__
+    global wordlist_repo
+    global parallel_executer
     __wordlist_id__: int = 0
 
-    check_dir(__wordlist_path__)
+    check_dir(wordlist_path)
 
     __wordlist_id__: int = to_int(code)
     __wordlists_count__: int = 0
-    for i in __repo__.keys():
-        __wordlists_count__ += __repo__[i]["count"]
+    for i in wordlist_repo.keys():
+        __wordlists_count__ += wordlist_repo[i]["count"]
 
     lst: dict = {}
 
@@ -377,45 +376,45 @@ def download_wordlists(code: str) -> None:
         if (__wordlist_id__ >= __wordlists_count__ + 1) or __wordlist_id__ < 0:
             raise IndexError(f"{code} is not a valid wordlist id")
         elif __wordlist_id__ == 0:
-            if __category__ == "":
-                lst = __repo__
+            if selected_category == "":
+                lst = wordlist_repo
             else:
-                lst[__category__] = __repo__[__category__]
-        elif __category__ != "":
-            lst[__category__] = {
-                "files": [__repo__[__category__]["files"][__wordlist_id__ - 1]]
+                lst[selected_category] = wordlist_repo[selected_category]
+        elif selected_category != "":
+            lst[selected_category] = {
+                "files": [wordlist_repo[selected_category]["files"][__wordlist_id__ - 1]]
             }
         else:
             cat: str = ""
             count: int = 0
             wid: int = 0
-            for i in __repo__.keys():
-                count += __repo__[i]["count"]
+            for i in wordlist_repo.keys():
+                count += wordlist_repo[i]["count"]
                 if (__wordlist_id__ - 1) < (count):
                     cat = i
                     break
             wid = (__wordlist_id__ - 1) - count
-            lst[cat] = {"files": [__repo__[cat]["files"][wid]]}
+            lst[cat] = {"files": [wordlist_repo[cat]["files"][wid]]}
         for i in lst.keys():
             for j in lst[i]["files"]:
-                __executer__.submit(download_wordlist, j, j["name"], i)
-        __executer__.shutdown(wait=True)
+                parallel_executer.submit(download_wordlist, j, j["name"], i)
+        parallel_executer.shutdown(wait=True)
         errored: int = 0
     except Exception as ex:
         err(f"Error unable to download wordlist: {str(ex)}")
 
 
 def print_wordlists(categories: str = "") -> None:
-    global __repo__
+    global wordlist_repo
     if categories == "":
         lst: list = []
         success("available wordlists:\n")
         print("    > 0  - all wordlists")
-        if __category__ != "":
-            lst = __repo__[__category__]["files"]
+        if selected_category != "":
+            lst = wordlist_repo[selected_category]["files"]
         else:
-            for i in __repo__.keys():
-                lst += __repo__[i]["files"]
+            for i in wordlist_repo.keys():
+                lst += wordlist_repo[i]["files"]
 
         for i in lst:
             id = lst.index(i) + 1
@@ -427,12 +426,12 @@ def print_wordlists(categories: str = "") -> None:
     else:
         categories_list: set = set([i.strip() for i in categories.split(',')])
         for i in categories_list:
-            if i not in __repo__.keys():
+            if i not in wordlist_repo.keys():
                 err(f"category {i} is unavailable")
                 exit(-1)
         for i in categories_list:
             success(f"{i}:")
-            for j in __repo__[i]["files"]:
+            for j in wordlist_repo[i]["files"]:
                 name = j["name"]
                 compsize = to_readable_size(j["size"][0])
                 decompsize = to_readable_size(j["size"][1])
@@ -441,10 +440,10 @@ def print_wordlists(categories: str = "") -> None:
 
 
 def search_dir(regex: str) -> None:
-    global __wordlist_path__
+    global wordlist_path
     count: int = 0
     try:
-        for root, _, files in os.walk(__wordlist_path__):
+        for root, _, files in os.walk(wordlist_path):
             for f in files:
                 if re.match(regex, f):
                     info(f"wordlist found: {os.path.join(root, f)}")
@@ -460,11 +459,11 @@ def search_sites(regex: str) -> None:
     lst: list = []
     info(f"searching for {regex} in repo.json\n")
     try:
-        if __category__ != "":
-            lst = __repo__[__category__]["files"]
+        if selected_category != "":
+            lst = wordlist_repo[selected_category]["files"]
         else:
-            for i in __repo__.keys():
-                lst += __repo__[i]["files"]
+            for i in wordlist_repo.keys():
+                lst += wordlist_repo[i]["files"]
 
         for i in lst:
             name = i["name"]
@@ -498,13 +497,13 @@ def check_file(path: str) -> bool:
 
 
 def change_category(code: str) -> None:
-    global __category__
-    global __repo__
+    global selected_category
+    global wordlist_repo
     __category_id__: int = to_int(code)
     try:
-        if (__category_id__ >= list(__repo__.keys()).__len__()) or __category_id__ < 0:
+        if (__category_id__ >= list(wordlist_repo.keys()).__len__()) or __category_id__ < 0:
             raise IndexError(f"{code} is not a valid category id")
-        __category__ = list(__repo__.keys())[__category_id__]
+        selected_category = list(wordlist_repo.keys())[__category_id__]
     except Exception as ex:
         err(f"Error while changing category: {str(ex)}")
         exit(-1)
@@ -513,23 +512,23 @@ def change_category(code: str) -> None:
 def print_categories() -> None:
     index: int = 0
     success("available wordlists category:\n")
-    for i in __repo__.keys():
-        count = __repo__[i]["count"]
-        compsize = to_readable_size(__repo__[i]["size"][0])
-        decompsize = to_readable_size(__repo__[i]["size"][1])
+    for i in wordlist_repo.keys():
+        count = wordlist_repo[i]["count"]
+        compsize = to_readable_size(wordlist_repo[i]["size"][0])
+        decompsize = to_readable_size(wordlist_repo[i]["size"][1])
         print(f"    > {index}  - {i} ({count} lsts, {compsize}, {decompsize})")
         index += 1
     print("")
 
 
 def load_config() -> None:
-    global __repo__
+    global wordlist_repo
     configfile: str = f"{os.path.dirname(os.path.realpath(__file__))}/repo.json"
-    if __repo__.__len__() <= 0:
+    if wordlist_repo.__len__() <= 0:
         try:
             if not os.path.isfile(configfile):
                 raise FileNotFoundError("Config file not found")
-            __repo__ = json.load(open(configfile, 'r'))
+            wordlist_repo = json.load(open(configfile, 'r'))
         except Exception as ex:
             err(f"Error while loading config files: {str(ex)}")
             exit(-1)
@@ -544,15 +543,14 @@ def to_int(string: str) -> int:
 
 
 def arg_parse(argv: list) -> tuple:
-    global __wordlist_path__
-    global __decompress__
-    global __remove__
-    global __prefer_http__
-    global __max_parallel__
-    global __torrent_dl__
-    global __useragent__
-    global __no_confirm__
-    global __no_integrity_check__
+    global wordlist_path
+    global decompress_archive
+    global remove_archive
+    global prefer_http
+    global max_parallel
+    global torrent_dl
+    global useragent_string
+    global skip_integrity_check
     __operation__ = None
     __arg__ = None
     opFlag: int = 0
@@ -576,7 +574,7 @@ def arg_parse(argv: list) -> tuple:
             elif opt == "-d":
                 dirname = os.path.abspath(arg)
                 check_dir(dirname)
-                __wordlist_path__ = dirname
+                wordlist_path = dirname
             elif opt == "-f":
                 if arg == '?':
                     __operation__ = print_wordlists
@@ -589,17 +587,15 @@ def arg_parse(argv: list) -> tuple:
                 __arg__ = arg
                 opFlag += 1
             elif opt == "-X":
-                __decompress__ = True
+                decompress_archive = True
             elif opt == "-r":
-                __remove__ = True
+                remove_archive = True
             elif opt == "-T":
-                __torrent_dl__ = False
-            elif opt == "-N":
-                __no_confirm__ = True
+                torrent_dl = False
             elif opt == "-I":
-                __no_integrity_check__ = True
+                skip_integrity_check = True
             elif opt == "-A":
-                __useragent__ = arg
+                useragent_string = arg
             elif opt == "-S":
                 __operation__ = search_sites
                 __arg__ = arg
@@ -612,10 +608,10 @@ def arg_parse(argv: list) -> tuple:
                     load_config()
                     change_category(arg)
             elif opt == "-h":
-                __prefer_http__ = True
+                prefer_http = True
             elif opt == "-t":
-                __max_parallel__ = to_int(arg)
-                if __max_parallel__ <= 0:
+                max_parallel = to_int(arg)
+                if max_parallel <= 0:
                     raise Exception("threads number can't be less than 1")
             elif opt == "-F":
                 __operation__ = print_wordlists
@@ -632,8 +628,8 @@ def arg_parse(argv: list) -> tuple:
 
 
 def main(argv: list) -> int:
-    global __max_parallel__
-    global __executer__
+    global max_parallel
+    global parallel_executer
     banner()
 
     __operation__, __arg__ = arg_parse(argv)
@@ -641,8 +637,8 @@ def main(argv: list) -> int:
     try:
         if __operation__ not in [version, usage]:
             load_config()
-        if __executer__ is None:
-            __executer__ = ThreadPoolExecutor(__max_parallel__)
+        if parallel_executer is None:
+            parallel_executer = ThreadPoolExecutor(max_parallel)
         if __operation__ is not None:
             if __arg__ is not None:
                 __operation__(__arg__)
