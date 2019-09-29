@@ -60,9 +60,6 @@ __executer__ = None
 __max_parallel__: int = 5
 __session__ = None
 __useragent__: str = "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0"
-__proxy__: dict = {}
-__proxy_http__: bool = False
-__proxy_torrent__: bool = False
 __chunk_size__: int = 1024
 __no_confirm__: bool = False
 __no_integrity_check__: bool = False
@@ -85,7 +82,6 @@ def success(string: str) -> None:
     print(colored("[+]", "green", attrs=["bold"]), f" {string}")
 
 
-
 def usage() -> None:
     str_usage: str = "usage:\n\n"
     str_usage += f"  {__project__} -f <arg> [options] | -s <arg> [options] | -S <arg> | <misc>\n\n"
@@ -102,10 +98,7 @@ def usage() -> None:
     str_usage += "  -t <num>   - max parallel downloads (default: 5)\n\n"
     str_usage += "misc:\n\n"
     str_usage += "  -T         - disable torrent download\n"
-    str_usage += "  -P <str>   - set proxy (format: proto://user:pass@host:port)\n"
     str_usage += "  -A <str>   - set useragent string\n"
-    str_usage += "  -Y         - proxy http\n"
-    str_usage += "  -Z         - proxy torrent\n"
     str_usage += "  -N         - do not ask for any confirmation\n"
     str_usage += "  -I         - skip integrity checks\n"
     str_usage += f"  -V         - print version of {__project__} and exit\n"
@@ -125,10 +118,8 @@ def usage() -> None:
     str_usage += f"  $ {__project__} -f 2 -d ~/wordlists -h\n\n"
     str_usage += "  # print wordlists in username and password categories\n"
     str_usage += f"  $ {__project__} -F username,password\n\n"
-    str_usage += "  # download all wordlists with using tor socks5 proxy\n"
-    str_usage += f"  $ {__project__} -f 0 -P \"socks5://127.0.0.1:9050\" -Y\n\n"
-    str_usage += "  # download all wordlists with using http proxy and noleak useragent\n"
-    str_usage += f"  $ {__project__} -f 0 -P \"http://127.0.0.1:9060\" -Y -A \"noleak\"\n\n"
+    str_usage += "  # download all wordlists with using noleak useragent\n"
+    str_usage += f"  $ {__project__} -f 0 -A \"noleak\"\n\n"
     str_usage += "notes:\n\n"
     str_usage += "  * Wordlist's id are relative to the category that is chosen\n"
     str_usage += "    and are not global, so by changing the category Wordlist's\n"
@@ -146,8 +137,8 @@ def version() -> None:
 
 
 def banner():
-    print(colored(f"--==[ {__project__} by {__organization__} ]==--\n", 
-                                                        "red", attrs=["bold"]))
+    print(colored(f"--==[ {__project__} by {__organization__} ]==--\n",
+                  "red", attrs=["bold"]))
 
 
 def decompress(filepath: str) -> None:
@@ -234,7 +225,7 @@ def resolve(url: str) -> str:
     return resolved
 
 
-def to_readable_size(size: int) -> str:
+def to_readable_size(size: float) -> str:
     units: dict = {0: 'bytes',
                    1: 'Kbytes',
                    2: 'Mbytes',
@@ -242,70 +233,9 @@ def to_readable_size(size: int) -> str:
                    4: 'Tbytes'}
     i: int = 0
     while size > 1000:
-        size = size / 1000
+        size /= 1000
         i += 1
     return f"{size:.2f} {units[i]}"
-
-
-def torrent_setup_proxy() -> None:
-    global __session__
-    global __proxy__
-
-    if __session__ is None:
-        err("session not initialized")
-        exit(-1)
-    elif __proxy__ == {}:
-        err("proxy is empty")
-        exit(-1)
-    elif not __proxy_torrent__:
-        return
-    regex = r"^(http|https|socks4|socks5)://([a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+@)?[a-z0-9.]+:[0-9]{1,5}$"
-    if re.match(regex, str(__proxy__['http']).lower()):
-        username, password, host, port = "", "", "", ""
-        proxy = str(__proxy__['http'])
-        proxy_settings = libtorrent.proxy_settings()
-        proto = proxy.split("://")[0]
-        proxy = proxy.replace(f"{proto}://", "")
-        if proxy.__contains__('@'):
-            creds = proxy.split('@')[0]
-            username, password = creds.split(':')
-            proxy_settings.username, proxy_settings.password = username, password
-            proxy = proxy.replace(f"{creds}@", "")
-        host, port = proxy.split(':')
-        proxy_settings.proxy_hostnames = True
-        proxy_settings.proxy_peer_connections = True
-        proxy_settings.hostname = host
-        proxy_settings.proxy_port = port
-        if username != "" and password != "":
-            if proto in ("http", "https"):
-                proxy_settings.proxy_type = libtorrent.proxy_type().http_pw
-            elif proto in ("socks4", "socks5"):
-                proxy_settings.proxy_type = libtorrent.proxy_type().socks5_pw
-        else:
-            if proto in ("http", "https"):
-                proxy_settings.proxy_type = libtorrent.proxy_type().http
-            elif proto in ("socks4", "socks5"):
-                proxy_settings.proxy_type = libtorrent.proxy_type().socks5
-        __session__.set_dht_proxy(proxy_settings)
-        __session__.set_peer_proxy(proxy_settings)
-        __session__.set_tracker_proxy(proxy_settings)
-        __session__.set_web_seed_proxy(proxy_settings)
-        __session__.set_proxy(proxy_settings)
-        settings = __session__.settings()
-        settings.force_proxy = True
-        settings.proxy_hostnames = True
-        settings.proxy_peer_connections = True
-        settings.proxy_tracker_connections = True
-        settings.anonymous_mode = True
-        __session__.dht_proxy()
-        __session__.peer_proxy()
-        __session__.tracker_proxy()
-        __session__.web_seed_proxy()
-        __session__.proxy()
-        __session__.set_settings(settings)
-    else:
-        err("invalid proxy format")
-        exit(-1)
 
 
 def integrity_check(checksum: str, path: str) -> None:
@@ -327,12 +257,7 @@ def integrity_check(checksum: str, path: str) -> None:
 
 
 def fetch_file(url: str, path: str) -> None:
-    global __proxy__
-    global __proxy_http__
     global __chunk_size__
-    proxy: dict = {}
-    if __proxy_http__:
-        proxy = __proxy__
     filename: str = os.path.basename(path)
     if check_file(path):
         warn(f"{filename} already exists -- skipping")
@@ -340,8 +265,7 @@ def fetch_file(url: str, path: str) -> None:
         info(f"downloading {filename} to {path}")
         dlurl = resolve(url)
         rq = requests.get(dlurl, stream=True,
-                            headers={"User-Agent": __useragent__},
-                            proxies=proxy)
+                          headers={"User-Agent": __useragent__})
         fp = open(path, "wb")
         for data in rq.iter_content(chunk_size=__chunk_size__):
             fp.write(data)
@@ -351,12 +275,9 @@ def fetch_file(url: str, path: str) -> None:
 
 def fetch_torrent(url: str, path: str) -> None:
     global __session__
-    global __proxy__
     global __torrent_dl__
     if __session__ is None:
         __session__ = libtorrent.session({"listen_interfaces": "0.0.0.0:6881"})
-        if __proxy__ != {}:
-            torrent_setup_proxy()
         __session__.start_dht()
     magnet = False
     if str(url).startswith("magnet:?"):
@@ -408,36 +329,34 @@ def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
     check_dir(f"{__wordlist_path__}/{category}")
     file_directory = f"{__wordlist_path__}/{category}"
 
-    try:
-        for _ in range(0, __max_retry__ +1):
-            try:
+    for _ in range(0, __max_retry__ + 1):
+        try:
 
-                urls: list = config["url"]
-                urls.sort()
-                url: str = ""
-                if __prefer_http__:
-                    url = urls[0]
+            urls: list = config["url"]
+            urls.sort()
+            url: str = ""
+            if __prefer_http__:
+                url = urls[0]
+            else:
+                url = urls[-1]
+            filename = url.split('/')[-1]
+            file_path = f"{file_directory}/{filename}"
+            csum = config["sum"][config["url"].index(url)]
+            if url.startswith("http"):
+                fetch_file(url, file_path)
+                integrity_check(csum, file_path)
+                decompress(file_path)
+            else:
+                if url.replace("torrent+", "").startswith("magnet:?"):
+                    fetch_torrent(url.replace("torrent+", ""), file_path)
                 else:
-                    url = urls[-1]
-                filename = url.split('/')[-1]
-                file_path = f"{file_directory}/{filename}"
-                csum = config["sum"][config["url"].index(url)]
-                if url.startswith("http"):
-                    fetch_file(url, file_path)
+                    fetch_file(url.replace("torrent+", ""), file_path)
                     integrity_check(csum, file_path)
-                    decompress(file_path)
-                else:
-                    if url.replace("torrent+", "").startswith("magnet:?"):
-                        fetch_torrent(url.replace("torrent+", ""), file_path)
-                    else:
-                        fetch_file(url.replace("torrent+", ""), file_path)
-                        integrity_check(csum, file_path)
-                        fetch_torrent(url, file_path)
-                break
-            except Exception as ex:
-                err(f"Error while downloading {wordlistname}: {str(ex)}")
-                remove(file_path)
-
+                    fetch_torrent(url, file_path)
+            break
+        except Exception as ex:
+            err(f"Error while downloading {wordlistname}: {str(ex)}")
+            remove(file_path)
 
 
 def download_wordlists(code: str) -> None:
@@ -578,17 +497,6 @@ def check_file(path: str) -> bool:
     return os.path.isfile(str(path))
 
 
-def check_proxy(proxy: dict) -> bool:
-    try:
-        reg: str = r"^(http|https|socks4|socks5)://([a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+@)?[a-z0-9.]+:[0-9]{1,5}$"
-        if re.match(reg, proxy['http']):
-            return True
-        return False
-    except Exception as ex:
-        err(f"unable to use proxy: {str(ex)}")
-        exit(-1)
-
-
 def change_category(code: str) -> None:
     global __category__
     global __config__
@@ -643,9 +551,6 @@ def arg_parse(argv: list) -> tuple:
     global __max_parallel__
     global __torrent_dl__
     global __useragent__
-    global __proxy__
-    global __proxy_http__
-    global __proxy_torrent__
     global __no_confirm__
     global __no_integrity_check__
     __operation__ = None
@@ -653,7 +558,7 @@ def arg_parse(argv: list) -> tuple:
     opFlag: int = 0
 
     try:
-        opts, _ = getopt.getopt(argv[1:], "ZIYHNVXThrd:c:f:s:S:t:F:A:P:")
+        opts, _ = getopt.getopt(argv[1:], "IHNVXThrd:c:f:s:S:t:F:A:")
 
         if opts.__len__() <= 0:
             __operation__ = usage
@@ -689,23 +594,12 @@ def arg_parse(argv: list) -> tuple:
                 __remove__ = True
             elif opt == "-T":
                 __torrent_dl__ = False
-            elif opt == "-Z":
-                __proxy_torrent__ = True
-            elif opt == "-Y":
-                __proxy_http__ = True
             elif opt == "-N":
                 __no_confirm__ = True
             elif opt == "-I":
                 __no_integrity_check__ = True
             elif opt == "-A":
                 __useragent__ = arg
-            elif opt == "-P":
-                if arg.startswith('http://'):
-                    proxy = {"http": arg}
-                else:
-                    proxy = {"http": arg, "https": arg}
-                check_proxy(proxy)
-                __proxy__ = proxy
             elif opt == "-S":
                 __operation__ = search_sites
                 __arg__ = arg
