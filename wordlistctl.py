@@ -312,13 +312,13 @@ def fetch_torrent(url: str, path: str) -> None:
         else:
             err(f"{path} not found")
             exit(-1)
-    __outfilename__ = f"{os.path.dirname(path)}/{handle.name()}"
-    info(f"downloading {handle.name()} to {__outfilename__}")
+    outfilename = f"{os.path.dirname(path)}/{handle.name()}"
+    info(f"downloading {handle.name()} to {outfilename}")
     while not handle.is_seed():
         time.sleep(0.1)
     torrent_session.remove_torrent(handle)
     success(f"downloading {handle.name()} completed")
-    decompress(__outfilename__)
+    decompress(outfilename)
 
 
 def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
@@ -361,28 +361,27 @@ def download_wordlist(config: dict, wordlistname: str, category: str) -> None:
 def download_wordlists(code: str) -> None:
     global wordlist_repo
     global parallel_executer
-    __wordlist_id__: int = 0
 
     check_dir(wordlist_path)
 
-    __wordlist_id__: int = to_int(code)
-    __wordlists_count__: int = 0
+    wordlist_id: int = to_int(code)
+    wordlists_count: int = 0
     for i in wordlist_repo.keys():
-        __wordlists_count__ += wordlist_repo[i]["count"]
+        wordlists_count += wordlist_repo[i]["count"]
 
     lst: dict = {}
 
     try:
-        if (__wordlist_id__ >= __wordlists_count__ + 1) or __wordlist_id__ < 0:
+        if (wordlist_id >= wordlists_count + 1) or wordlist_id < 0:
             raise IndexError(f"{code} is not a valid wordlist id")
-        elif __wordlist_id__ == 0:
+        elif wordlist_id == 0:
             if selected_category == "":
                 lst = wordlist_repo
             else:
                 lst[selected_category] = wordlist_repo[selected_category]
         elif selected_category != "":
             lst[selected_category] = {
-                "files": [wordlist_repo[selected_category]["files"][__wordlist_id__ - 1]]
+                "files": [wordlist_repo[selected_category]["files"][wordlist_id - 1]]
             }
         else:
             cat: str = ""
@@ -390,16 +389,15 @@ def download_wordlists(code: str) -> None:
             wid: int = 0
             for i in wordlist_repo.keys():
                 count += wordlist_repo[i]["count"]
-                if (__wordlist_id__ - 1) < (count):
+                if (wordlist_id - 1) < (count):
                     cat = i
                     break
-            wid = (__wordlist_id__ - 1) - count
+            wid = (wordlist_id - 1) - count
             lst[cat] = {"files": [wordlist_repo[cat]["files"][wid]]}
         for i in lst.keys():
             for j in lst[i]["files"]:
                 parallel_executer.submit(download_wordlist, j, j["name"], i)
         parallel_executer.shutdown(wait=True)
-        errored: int = 0
     except Exception as ex:
         err(f"Error unable to download wordlist: {str(ex)}")
 
@@ -499,11 +497,11 @@ def check_file(path: str) -> bool:
 def change_category(code: str) -> None:
     global selected_category
     global wordlist_repo
-    __category_id__: int = to_int(code)
+    category_id: int = to_int(code)
     try:
-        if (__category_id__ >= list(wordlist_repo.keys()).__len__()) or __category_id__ < 0:
+        if (category_id >= list(wordlist_repo.keys()).__len__()) or category_id < 0:
             raise IndexError(f"{code} is not a valid category id")
-        selected_category = list(wordlist_repo.keys())[__category_id__]
+        selected_category = list(wordlist_repo.keys())[category_id]
     except Exception as ex:
         err(f"Error while changing category: {str(ex)}")
         exit(-1)
@@ -551,25 +549,25 @@ def arg_parse(argv: list) -> tuple:
     global torrent_dl
     global useragent_string
     global skip_integrity_check
-    __operation__ = None
-    __arg__ = None
+    function = None
+    arguments = None
     opFlag: int = 0
 
     try:
         opts, _ = getopt.getopt(argv[1:], "IHNVXThrd:c:f:s:S:t:F:A:")
 
         if opts.__len__() <= 0:
-            __operation__ = usage
-            return __operation__, None
+            function = usage
+            return function, None
 
         for opt, arg in opts:
             if opFlag and re.fullmatch(r"^-([VfsSF])", opt):
                 raise getopt.GetoptError("multiple operations selected")
             if opt == "-H":
-                __operation__ = usage
-                return __operation__, None
+                function = usage
+                return function, None
             elif opt == "-V":
-                __operation__ = version
+                function = version
                 opFlag += 1
             elif opt == "-d":
                 dirname = os.path.abspath(arg)
@@ -577,14 +575,14 @@ def arg_parse(argv: list) -> tuple:
                 wordlist_path = dirname
             elif opt == "-f":
                 if arg == '?':
-                    __operation__ = print_wordlists
+                    function = print_wordlists
                 else:
-                    __operation__ = download_wordlists
-                    __arg__ = arg
+                    function = download_wordlists
+                    arguments = arg
                 opFlag += 1
             elif opt == "-s":
-                __operation__ = search_dir
-                __arg__ = arg
+                function = search_dir
+                arguments = arg
                 opFlag += 1
             elif opt == "-X":
                 decompress_archive = True
@@ -597,13 +595,13 @@ def arg_parse(argv: list) -> tuple:
             elif opt == "-A":
                 useragent_string = arg
             elif opt == "-S":
-                __operation__ = search_sites
-                __arg__ = arg
+                function = search_sites
+                arguments = arg
                 opFlag += 1
             elif opt == "-c":
                 if arg == '?':
-                    __operation__ = print_categories
-                    return __operation__, None
+                    function = print_categories
+                    return function, None
                 else:
                     load_config()
                     change_category(arg)
@@ -614,8 +612,8 @@ def arg_parse(argv: list) -> tuple:
                 if max_parallel <= 0:
                     raise Exception("threads number can't be less than 1")
             elif opt == "-F":
-                __operation__ = print_wordlists
-                __arg__ = arg
+                function = print_wordlists
+                arguments = arg
                 opFlag += 1
     except getopt.GetoptError as ex:
         err(f"Error while parsing arguments: {str(ex)}")
@@ -624,7 +622,7 @@ def arg_parse(argv: list) -> tuple:
     except Exception as ex:
         err(f"Error while parsing arguments: {str(ex)}")
         exit(-1)
-    return __operation__, __arg__
+    return function, arguments
 
 
 def main(argv: list) -> int:
@@ -632,18 +630,18 @@ def main(argv: list) -> int:
     global parallel_executer
     banner()
 
-    __operation__, __arg__ = arg_parse(argv)
+    function, arguments = arg_parse(argv)
 
     try:
-        if __operation__ not in [version, usage]:
+        if function not in [version, usage]:
             load_config()
         if parallel_executer is None:
             parallel_executer = ThreadPoolExecutor(max_parallel)
-        if __operation__ is not None:
-            if __arg__ is not None:
-                __operation__(__arg__)
+        if function is not None:
+            if arguments is not None:
+                function(arguments)
             else:
-                __operation__()
+                function()
         else:
             raise getopt.GetoptError("no operation selected")
         return 0
